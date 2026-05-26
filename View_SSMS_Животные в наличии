@@ -1,0 +1,119 @@
+USE ERP_OPER_CB_Prod;
+
+SELECT
+	Farm._Description AS [Ферма],
+	TechGroup._Description AS [Тех.группа],
+    DATEADD(YEAR, -2000, CAST(TechGroup._Fld83229 AS date)) AS [Дата рождения],
+  CASE
+    TechGroup._Fld83229
+  WHEN NULL THEN NULL
+  ELSE DATEDIFF(day, DATEADD(YEAR, -2000, CAST(TechGroup._Fld83229 AS date)), CAST(GETDATE() as DATE))
+  END AS [Возраст],
+  CASE
+	AnimalGroup._EnumOrder
+  WHEN 0 THEN 'Подсосные поросята'
+  WHEN 1 THEN 'На доращивании'
+  WHEN 2 THEN 'На откорме'
+  WHEN 3 THEN 'Основные свиноматки'
+  WHEN 4 THEN 'Проверяемые свиноматки'
+  WHEN 5 THEN 'Ремонтные свинки'
+  WHEN 6 THEN 'Основные хряки'
+  WHEN 7 THEN 'Проверяемые хряки'
+  WHEN 8 THEN 'Ремонтные хрячки'
+  WHEN 9 THEN 'Хряки пробники'
+  ELSE CASE
+		WHEN MotherPig._Code IS NOT NULL THEN 'Свиноматки'
+		ELSE CASE
+			 WHEN FatherPig._Code IS NOT NULL THEN 'Хряки'
+			 ELSE 'Подсосные поросята'
+			 END
+		END 
+  END AS [Группа животных],
+    CAST(SUM(
+  CASE
+	RegistrMove._RecordKind
+	WHEN 0 THEN RegistrMove._Fld82713
+	WHEN 1 THEN
+			 CASE
+		     WHEN RegistrMove._Fld82713 < 0 THEN RegistrMove._Fld82713
+		     ELSE RegistrMove._Fld82713*-1
+			 END
+	ELSE NULL
+	END) AS decimal(15,2)) AS [Количество],
+    CASE
+	WHEN CAST(SUM(
+  CASE
+	RegistrMove._RecordKind
+	WHEN 0 THEN RegistrMove._Fld82714
+	WHEN 1 THEN
+			 CASE
+			 WHEN RegistrMove._Fld82714 < 0 THEN RegistrMove._Fld82714
+			 ELSE RegistrMove._Fld82714*-1
+		     END
+    ELSE NULL
+    END) AS decimal(15,2)) < 0 THEN 0
+	ELSE CAST(SUM(
+  CASE
+	RegistrMove._RecordKind
+	WHEN 0 THEN RegistrMove._Fld82714
+	WHEN 1 THEN
+			 CASE
+			 WHEN RegistrMove._Fld82714 < 0 THEN RegistrMove._Fld82714
+			 ELSE RegistrMove._Fld82714*-1
+		     END
+    ELSE NULL
+    END) AS decimal(15,2)) 
+	END AS [Масса]
+FROM
+	_AccumRg82703 AS RegistrMove
+LEFT JOIN
+	_Reference80513X1 AS Farm ON RegistrMove._Fld82704RRef = Farm._IDRRef
+LEFT JOIN
+	_Reference80510X1 AS TechGroup ON RegistrMove._Fld82710RRef = TechGroup._IDRRef
+LEFT JOIN
+	_Reference80510_VT83235X1 AS TechGroup_GroupAnimal ON TechGroup._IDRRef = TechGroup_GroupAnimal._Reference80510_IDRRef
+LEFT JOIN
+	_Enum80566 AS AnimalGroup ON TechGroup_GroupAnimal._Fld83237RRef = AnimalGroup._IDRRef
+LEFT JOIN
+	_Reference80496X1 AS MotherPig ON RegistrMove._Fld82707RRef = MotherPig._IDRRef
+LEFT JOIN
+	_Reference80515X1 AS FatherPig ON RegistrMove._Fld82708RRef = FatherPig._IDRRef
+GROUP BY
+	Farm._Description,
+	TechGroup._Description,
+	TechGroup._Fld83229,
+	AnimalGroup._EnumOrder,
+	CASE
+	AnimalGroup._EnumOrder
+  WHEN 0 THEN 'Подсосные поросята'
+  WHEN 1 THEN 'На доращивании'
+  WHEN 2 THEN 'На откорме'
+  WHEN 3 THEN 'Основные свиноматки'
+  WHEN 4 THEN 'Проверяемые свиноматки'
+  WHEN 5 THEN 'Ремонтные свинки'
+  WHEN 6 THEN 'Основные хряки'
+  WHEN 7 THEN 'Проверяемые хряки'
+  WHEN 8 THEN 'Ремонтные хрячки'
+  WHEN 9 THEN 'Хряки пробники'
+  ELSE CASE
+		WHEN MotherPig._Code IS NOT NULL THEN 'Свиноматки'
+		ELSE CASE
+			 WHEN FatherPig._Code IS NOT NULL THEN 'Хряки'
+			 ELSE 'Подсосные поросята'
+			 END
+		END 
+  END
+HAVING
+	SUM(
+  CASE
+	RegistrMove._RecordKind
+	WHEN 0 THEN RegistrMove._Fld82713
+	WHEN 1 THEN
+			 CASE
+		     WHEN RegistrMove._Fld82713 < 0 THEN RegistrMove._Fld82713
+		     ELSE RegistrMove._Fld82713*-1
+			 END
+	ELSE NULL
+	END) > 0
+ORDER BY
+	Farm._Description
