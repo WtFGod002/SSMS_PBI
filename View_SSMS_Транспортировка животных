@@ -1,0 +1,75 @@
+WITH
+	VesPig AS
+			(SELECT
+		MainDoc._Fld88345RRef AS [Уник.номер],
+		Farm._Description AS [Наименование фермы\Место взвешивания],
+		MainDoc._Fld88332 AS [Откуда],
+		MainDoc._Fld88331 AS [Куда],
+		VesPig._Fld88350 AS [ВесТары],
+		VesPig._Fld88351 AS [ВесБрутто],
+		VesPig._Fld88352 AS [ВесНетто],
+		VesPig._Fld88355 AS [Количество],
+		MainDoc._Fld88317 AS [Комментарий]
+	FROM
+		ERP_Oper_CB_Prod.dbo._Document88298X1 AS MainDoc
+	LEFT JOIN
+		ERP_Oper_CB_Prod.dbo._Reference80513X1 AS Farm ON MainDoc._Fld88321RRef = Farm._IDRRef
+	LEFT JOIN
+		ERP_Oper_CB_Prod.dbo._Document88298_VT88347X1 AS VesPig ON MainDoc._IDRRef = VesPig._Document88298_IDRRef
+	WHERE
+		CAST(MainDoc._Posted AS bit) = 1
+	AND
+		CAST(MainDoc._Fld88340 as BIT) = 0)
+
+
+SELECT
+	DATEADD(YEAR, -2000, CAST(DocPerev._Date_Time as date)) AS [Дата документа],
+	DocPerev._Number AS [Номер документа],
+	VidPerevozki._Description AS [Вид перевозки],
+	VidOperacii._Description AS [Вид операции],
+  CASE
+	WHEN StatusPerev._EnumOrder = 0 THEN 'Формируется'
+	WHEN StatusPerev._EnumOrder = 1 THEN 'К погрузке'
+	WHEN StatusPerev._EnumOrder = 2 THEN 'Отправлено'
+	WHEN StatusPerev._EnumOrder = 3 THEN 'Закрыто'
+	WHEN StatusPerev._EnumOrder = 4 THEN '(МБН) Отменено'
+	ELSE NULL
+  END AS [Статус перевозки],
+	Transport._Description AS [Транспорт],
+	DocPerev._Fld9039 AS [Марка автомобиля],
+	DocPerev._Fld9038 AS [Государственный номер],
+	Expeditor._Description AS [Водитель],
+	Perevozchik._Description AS [Перевозчик],
+	KontrAgent._Description AS [Контрагент],
+	VesPig.[Наименование фермы\Место взвешивания],
+	VesPig.Откуда,
+	VesPig.Куда,
+	VesPig.ВесБрутто,
+	VesPig.ВесНетто,
+	VesPig.ВесТары,
+	VesPig.Количество,
+	VesPig.Комментарий
+FROM
+	ERP_Oper_CB_Prod.dbo._Document967X1 AS DocPerev
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Enum2219 AS StatusPerev ON DocPerev._Fld9014RRef = StatusPerev._IDRRef
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Reference761X1 AS Transport ON DocPerev._Fld9021_RRRef = Transport._IDRRef
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Reference825X1 AS Expeditor ON DocPerev._Fld9023RRef = Expeditor._IDRRef
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Reference465 AS Perevozchik ON DocPerev._Fld9030RRef = Perevozchik._IDRRef
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Reference324X1 AS KontrAgent ON DocPerev._Fld9031RRef = KontrAgent._IDRRef
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Document88298X1 AS MainDocument ON DocPerev._Fld88447RRef = MainDocument._IDRRef
+JOIN
+	VesPig ON DocPerev._IDRRef = VesPig.[Уник.номер]
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Reference84360X1 AS VidPerevozki ON DocPerev._Fld84445RRef = VidPerevozki._IDRRef
+LEFT JOIN
+	ERP_Oper_CB_Prod.dbo._Reference84361X1 AS VidOperacii ON DocPerev._Fld84446RRef = VidOperacii._IDRRef
+WHERE
+	CAST(DocPerev._Posted as BIT) = 1
+ORDER BY
+	DATEADD(YEAR, -2000, CAST(DocPerev._Date_Time as date)) ASC
