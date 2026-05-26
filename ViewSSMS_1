@@ -1,0 +1,144 @@
+USE 
+	ERP_Acc_Prod;
+
+DECLARE @StartDate datetime = DATEADD(DAY, - 1092, DATEADD(YEAR, + 2000, GETDATE()));
+
+WITH
+	Проект AS (
+					SELECT
+						Project._IDRRef AS [Идентификатор проекта],
+						Project._Description AS [Наименование проекта],
+						TRIM(
+							CASE
+							WHEN LEN(Project._Fld80749) > 5 THEN Project._Fld80749
+							WHEN LEN(
+									SUBSTRING(
+											Project._Description, 0, PATINDEX('%[ _]%', Project._Description)
+											)
+									) > 19 THEN LEFT(Project._Description, 17)
+							ELSE SUBSTRING(
+										Project._Description, 0, PATINDEX('%[ _]%', Project._Description)
+										)
+							END) AS [Номер проекта]
+					FROM
+						_Reference577X1 AS Project
+					WHERE
+						Project._Marked = 0x00
+					),
+
+	Документы_1 AS (
+					SELECT
+						Поступление._IDRRef AS [Идентификатор документа],
+						Поступление._Number AS [Номер документа],
+						Поступление._Fld27439RRef AS [Идентификатор договора],
+						Поступление._Fld27470 AS [Знаменатель]
+					FROM
+						_Document1255X1 AS Поступление
+					WHERE
+						Поступление._Posted = 0x01 AND Поступление._Marked = 0x00 AND Поступление._Fld27439RRef != 0x00000000000000000000000000000000
+
+
+					UNION ALL
+
+					SELECT
+						Списание._IDRRef AS [Идентификатор документа],
+						Списание._Number AS [Номер документа],
+						Списание._Fld31979_RRRef AS [Идентификатор договора],
+						РасшифровкаПлатежа._Fld32041 AS [Знаменатель]
+					FROM
+						_Document1327X1 AS Списание
+					JOIN
+						_Document1327_VT32006X1 AS РасшифровкаПлатежа ON Списание._IDRRef = РасшифровкаПлатежа._Document1327_IDRRef
+					WHERE
+						Списание._Marked = 0x00 AND Списание._Posted = 0x01 AND Списание._Fld31979_RRRef != 0x00000000000000000000000000000000 AND РасшифровкаПлатежа._LineNo32007 = 1
+					),
+	
+	Документы AS (
+				SELECT 
+					*
+				FROM
+					Документы_1
+				LEFT JOIN
+					(SELECT
+						_Fld33262_RRRef AS [Сторнируемый документ]
+					FROM
+						_Document1348X1
+					WHERE
+						_Posted = 0x01
+					) AS Сторно ON Документы_1.[Идентификатор документа] = Сторно.[Сторнируемый документ]
+				WHERE
+					Сторно.[Сторнируемый документ] IS NULL
+					)
+					
+
+SELECT
+	Договор_Проект.[Наименование проекта],
+	Договор_Проект.[Номер проекта],
+	Договор_Проект.[Наименование контрагента],
+	Договор_Проект.[Наименование договора],
+	Договор_Проект.[Ставка НДС],
+	Договор_Проект.[Валюта договора],
+	Договор_Проект.[Сумма договора],
+	CAST(SUM(
+			CASE
+			WHEN ПланСчетовКТ._Code NOT LIKE '51%' THEN CASE
+														WHEN Документы.[Сторнируемый документ] IS NOT NULL THEN РегистрБухгалтерии._Fld78272 / Документы.Знаменатель
+														ELSE РегистрБухгалтерии._Fld78272 / Документы.Знаменатель
+														END
+			ELSE 0
+			END) AS decimal(15,2)) AS [Сумма затрат],
+	CAST(SUM(
+			CASE
+			WHEN ПланСчетовКТ._Code LIKE '51%' THEN РегистрБухгалтерии._Fld78272 / Документы.Знаменатель
+			ELSE 0
+			END) AS decimal(15,2)) AS [Сумма оплат],
+	CAST(SUM(
+			CASE
+			WHEN ПланСчетовКТ._Code NOT LIKE '51%' THEN РегистрБухгалтерии._Fld78272 / Документы.Знаменатель
+			ELSE 0
+			END) / NULLIF(Договор_Проект.[Сумма договора], 0) * 100 AS decimal(10,2)) AS [Освоение договора %]
+FROM 
+	_AccRg78267X1 AS РегистрБухгалтерии
+JOIN
+	Документы ON РегистрБухгалтерии._RecorderRRef = Документы.[Идентификатор документа]
+JOIN (
+	SELECT
+		Договора._IDRRef AS [Идентификатор договора],
+		Проект.[Наименование проекта],
+		Проект.[Номер проекта],
+		CONCAT(Контрагент._Description, ' (ИНН: ', Контрагент._Fld64919, ')') AS [Наименование контрагента],
+		Договора._Description AS [Наименование договора],
+		Валюта._Description AS [Валюта договора],
+		Договора._Fld61563 AS [Сумма договора],
+		СтавкаНДС._Description AS [Ставка НДС]
+	FROM
+		_Reference196X1 AS Договора
+	JOIN
+		Проект ON Договора._Fld80476RRef = Проект.[Идентификатор проекта]
+	JOIN
+		_Reference324X1 AS Контрагент ON Договора._Fld61539RRef = Контрагент._IDRRef
+	LEFT JOIN
+		_Reference699 AS СтавкаНДС ON Договора._Fld61575RRef = СтавкаНДС._IDRRef
+	LEFT JOIN
+		_Reference68X1 AS Валюта ON Договора._Fld61534RRef = Валюта._IDRRef
+	) AS Договор_Проект ON Документы.[Идентификатор договора] = Договор_Проект.[Идентификатор договора]
+JOIN
+	_Acc47 AS ПланСчетовДТ ON РегистрБухгалтерии._AccountDtRRef = ПланСчетовДТ._IDRRef
+JOIN
+	_Acc47 AS ПланСчетовКТ ON РегистрБухгалтерии._AccountCtRRef = ПланСчетовКТ._IDRRef
+WHERE
+	РегистрБухгалтерии._Period >= @StartDate
+AND
+	(ПланСчетовДТ._Code LIKE '07%' OR ПланСчетовДТ._Code LIKE '08%' OR ПланСчетовДТ._Code LIKE '10%' OR ПланСчетовДТ._Code LIKE '11%' OR ПланСчетовДТ._Code LIKE '19%' OR ПланСчетовДТ._Code LIKE '20%' OR ПланСчетовДТ._Code LIKE '23%' OR ПланСчетовДТ._Code LIKE '25%' OR ПланСчетовДТ._Code LIKE '26%' OR ПланСчетовДТ._Code LIKE '44%' OR ПланСчетовДТ._Code LIKE '91%' OR ПланСчетовДТ._Code LIKE '60%') 
+AND
+	(ПланСчетовКТ._Code LIKE '51%' OR ПланСчетовКТ._Code LIKE '52%' OR ПланСчетовКТ._Code LIKE '60.01' OR ПланСчетовКТ._Code LIKE '60.31')
+AND 
+	LEFT(Договор_Проект.[Номер проекта], 1) IN ('1','2','3','4','5','6','7','8','9')
+GROUP BY
+	Договор_Проект.[Наименование проекта],
+	Договор_Проект.[Номер проекта],
+	Договор_Проект.[Наименование контрагента],
+	Договор_Проект.[Наименование договора],
+	Договор_Проект.[Ставка НДС],
+	Договор_Проект.[Валюта договора],
+	Договор_Проект.[Сумма договора]
