@@ -1,0 +1,167 @@
+USE ERP_Oper_CB_Prod;
+
+			WITH
+			TablePigDeath AS (SELECT
+								'Безномерные животные' AS GroupName,
+								NoNumberPig._Document80527_IDRRef AS IDRef,
+								TechGroup._Description AS NameTechGroup, 
+								DATEADD(YEAR, -2000, CAST(TechGroup._Fld83229 as Date)) AS DateBirthDayTechGroup,
+								CASE
+							WHEN Type_of_mortality._EnumOrder = 0 THEN 'Эвтаназия'
+							WHEN Type_of_mortality._EnumOrder = 1 THEN 'Падеж'
+							WHEN Type_of_mortality._EnumOrder = 2 THEN 'Падёж в сан. станке'
+							WHEN Type_of_mortality._EnumOrder = 3 THEN 'Падеж при транспортировке'
+								END AS TypeMortality,
+								Disease._Description AS Disease,
+								Culling._Description AS Culling,
+								SUM(NoNumberPig._Fld80926) AS CountPig
+							FROM _Document80527_VT80920X1 AS NoNumberPig
+							LEFT JOIN
+								_Enum87085X1 AS Type_of_mortality ON NoNumberPig._Fld87483RRef = Type_of_mortality._IDRRef
+							LEFT JOIN 
+								_Reference80476X1 AS Disease ON NoNumberPig._Fld80928RRef = Disease._IDRRef
+							LEFT JOIN 
+								_Reference80510X1 AS TechGroup ON NoNumberPig._Fld80924RRef = TechGroup._IDRRef
+							LEFT JOIN 
+								_Reference84548X1 AS Culling ON NoNumberPig._Fld87482RRef = Culling._IDRRef
+							GROUP BY NoNumberPig._Document80527_IDRRef, TechGroup._Description, TechGroup._Fld83229, Type_of_mortality._EnumOrder, Disease._Description, Culling._Description
+
+							UNION ALL
+
+							SELECT
+								'Подсосные поросята' AS GroupName,
+								Suckling_piglets._Document80527_IDRRef AS IDRef,
+								NULL AS NameTechGroup, 
+								DATEADD(YEAR, -2000, CAST(Suckling_piglets._Fld80917 as Date)) AS DateBirthDayTechGroup,
+								CASE
+							WHEN Type_of_mortality._EnumOrder = 0 THEN 'Эвтаназия'
+							WHEN Type_of_mortality._EnumOrder = 1 THEN 'Падеж'
+							WHEN Type_of_mortality._EnumOrder = 2 THEN 'Падёж в сан. станке'
+							WHEN Type_of_mortality._EnumOrder = 3 THEN 'Падеж при транспортировке'
+								END AS TypeMortality,
+								Disease._Description AS Disease,
+								NULL AS Culling,
+								SUM(Suckling_piglets._Fld80904) AS CountPig
+							FROM _Document80527_VT80898X1 AS Suckling_piglets
+							LEFT JOIN
+								_Enum87085X1 AS Type_of_mortality ON Suckling_piglets._Fld87471RRef = Type_of_mortality._IDRRef
+							LEFT JOIN
+								_Reference80476X1 AS Disease ON Suckling_piglets._Fld80906RRef = Disease._IDRRef
+							GROUP BY Suckling_piglets._Document80527_IDRRef, Suckling_piglets._Fld80917, Disease._Description, Type_of_mortality._EnumOrder
+
+							UNION ALL
+
+							SELECT
+								'Свиноматки' AS GroupName,
+								MotherPig._Document80527_IDRRef AS IDRef,
+								NULL AS NameTechGroup, 
+								NULL AS DateBirthDayTechGroup,
+								CASE
+							WHEN Type_of_mortality._EnumOrder = 0 THEN 'Эвтаназия'
+							WHEN Type_of_mortality._EnumOrder = 1 THEN 'Падеж'
+							WHEN Type_of_mortality._EnumOrder = 2 THEN 'Падёж в сан. станке'
+							WHEN Type_of_mortality._EnumOrder = 3 THEN 'Падеж при транспортировке'
+								END AS TypeMortality,
+								Disease._Description AS Disease,
+								Culling._Description AS Culling,
+								COUNT(*) AS CountPig
+							FROM _Document80527_VT80876X1 AS MotherPig
+							LEFT JOIN
+								_Enum87085X1 AS Type_of_mortality ON MotherPig._Fld87463RRef = Type_of_mortality._IDRRef
+							LEFT JOIN 
+								_Reference80476X1 AS Disease ON MotherPig._Fld80881RRef = Disease._IDRRef
+							LEFT JOIN 
+								_Reference84548X1 AS Culling ON MotherPig._Fld87462RRef = Culling._IDRRef
+							GROUP BY MotherPig._Document80527_IDRRef, Disease._Description, Culling._Description, Type_of_mortality._EnumOrder
+
+							UNION ALL
+
+							SELECT
+								'Хряки' AS GroupName,
+								Boar._Document80527_IDRRef AS IDRef,
+								NULL AS NameTechGroup, 
+								NULL AS DateBirthDayTechGroup,
+								CASE
+							WHEN Type_of_mortality._EnumOrder = 0 THEN 'Эвтаназия'
+							WHEN Type_of_mortality._EnumOrder = 1 THEN 'Падеж'
+							WHEN Type_of_mortality._EnumOrder = 2 THEN 'Падёж в сан. станке'
+							WHEN Type_of_mortality._EnumOrder = 3 THEN 'Падеж при транспортировке'
+								END AS TypeMortality,
+								Disease._Description AS Disease,
+								Culling._Description AS Culling,
+								COUNT(*) AS CountPig
+							FROM _Document80527_VT80887X1 AS Boar
+							LEFT JOIN 
+								_Enum87085X1 AS Type_of_mortality ON Boar._Fld87469RRef = Type_of_mortality._IDRRef
+							LEFT JOIN 
+								_Reference80476X1 AS Disease ON Boar._Fld80892RRef = Disease._IDRRef
+							LEFT JOIN 
+								_Reference84548X1 AS Culling ON Boar._Fld87468RRef = Culling._IDRRef
+							GROUP BY Boar._Document80527_IDRRef, Disease._Description, Culling._Description, Type_of_mortality._EnumOrder)
+
+SELECT 
+	CAST(DATEADD(YEAR, -2000, _Date_Time) AS date) AS 'Дата документа', -- Дата 1С (-2000)
+	DisposalPig._Number AS 'Номер документа',
+	OrgSite.Organization AS 'Организация',
+CASE DisposalPig._Posted
+		WHEN 0x00 THEN 'Нет'
+		ELSE 'Да'
+END AS 'Проведено?',
+CASE DisposalPig._Fld80849
+		WHEN 0x00 THEN 'Нет'
+		ELSE 'Да'
+END AS 'Выбраковка?',
+CASE Reason._EnumOrder
+		WHEN 0 THEN 'Реализовано'
+		WHEN 1 THEN 'Переведено на другие фермы'
+		WHEN 2 THEN 'Забито'
+		WHEN 3 THEN 'Пало'
+		WHEN 4 THEN 'Прочее'
+		WHEN 5 THEN 'Прочая реализация'
+END AS 'Причина',
+CASE AnimalGroup._EnumOrder											-- Выражение вычисления группы животных
+		WHEN 0 THEN 'Подсосные поросята'
+		WHEN 1 THEN 'На доращивании'
+		WHEN 2 THEN 'На откорме'
+		WHEN 3 THEN 'Основные свиноматки'
+		WHEN 4 THEN 'Проверяемые свиноматки'
+		WHEN 5 THEN 'Ремонтные свинки'
+		WHEN 6 THEN 'Основные хряки'
+		WHEN 7 THEN 'Проверяемые хряки'
+		WHEN 8 THEN 'Ремонтные хрячки'
+		WHEN 9 THEN 'Хряки пробники'
+		ELSE 'Свиноматки\Хряки'
+END AS 'Группа животных',
+	TablePigDeath.GroupName AS 'Подгруппа животных',
+	OrgSite.Cluster AS 'Кластер',
+	OrgSite.Production_Site AS 'Ферма_1C',
+	TablePigDeath.NameTechGroup AS 'Технологическая группа',
+	TablePigDeath.TypeMortality AS 'Вид падежа',
+	TablePigDeath.Disease AS 'Заболевание',
+	TablePigDeath.Culling AS 'Причина Выбраковки',
+	TablePigDeath.CountPig AS 'Кол-во падежа',
+	DATEDIFF(day, DateBirthDayTechGroup, CAST(DATEADD(year, -2000, _Date_Time) as date)) AS 'Возраст'
+FROM 
+	_Document80527X1 AS DisposalPig -- Документы по выбытию животных
+LEFT JOIN
+	_Enum80566 AS AnimalGroup ON DisposalPig._Fld80850RRef = AnimalGroup._IDRRef
+LEFT JOIN
+	(SELECT
+	OrgPro._IDRRef AS IDRef,
+	OrgPro1._Description AS Cluster,
+	OrG._Description AS Organization,
+	OrgPro._Description AS Production_Site
+	FROM _Reference80513X1 AS OrgPro
+	JOIN
+	_Reference410X1 AS OrG ON OrgPro._Fld83248RRef = OrG._IDRRef
+	JOIN
+	_Reference80513X1 AS OrgPro1 ON OrgPro._ParentIDRRef = OrgPro1._IDRRef)
+		AS OrgSite ON DisposalPig._Fld80868RRef = OrgSite.IDRef
+LEFT JOIN
+	_Enum80576X1 AS Reason ON DisposalPig._Fld80863RRef = Reason._IDRRef
+LEFT JOIN
+	TablePigDeath ON DisposalPig._IDRRef = TablePigDeath.IDRef
+WHERE
+	CAST(DATEADD(YEAR, - 2000, _Date_Time) AS date) > '01.01.2023' AND DisposalPig._Posted NOT LIKE 0x00 AND Reason._EnumOrder IN (0, 3)
+ORDER BY 
+	CAST(DATEADD(YEAR, -2000, DisposalPig._Date_Time) AS date) ASC
